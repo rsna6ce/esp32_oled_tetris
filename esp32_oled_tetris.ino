@@ -7,43 +7,34 @@
 #define PIN_RIGHT   18
 #define PIN_ROTATE  19
 #define PIN_LED      2     // オンボードLED
-#define PIN_BUZZER  23     // 圧電サウンダ(GPIO20)
+#define PIN_BUZZER  23     // 圧電サウンダ
 #define PIN_VOLTAGE 26
 
-// ================== U8g2 (40x72 縦長モード) ==================
+// ================== U8g2 ==================
 U8G2_SSD1309_128X64_NONAME0_F_HW_I2C u8g2(U8G2_R1, U8X8_PIN_NONE, /*SCL*/22, /*SDA*/21);
 
 // ================== ゲーム定数 ==================
 const int BOARD_W = 10;
 const int BOARD_H = 18;
 const int BLOCK_SIZE = 4;
-const int GAP = 1;                            // 縦長なので隙間1pxを確保
-const int CELL = BLOCK_SIZE + GAP;           // 1マス = 3ピクセル
+const int GAP = 1;
+const int CELL = BLOCK_SIZE + GAP;
 
-// 盤面サイズ：横 50px、縦 90px
-const int BOARD_X = 7;    // (64 - 50) / 2 ≈ 7
-const int BOARD_Y = 24;   // 128 - 90 - 枠分の余裕
+const int BOARD_X = 7;
+const int BOARD_Y = 24;
 
-// テトリミノ定義 [7種類][4回転状態][4行][4列] (ゲームボーイ版準拠)
+// テトリミノ定義
 const uint8_t tetrominoes[7][4][4][4] = {
-  // 0: Iミノ
   {{{0,0,0,0},{1,1,1,1},{0,0,0,0},{0,0,0,0}},{{0,0,1,0},{0,0,1,0},{0,0,1,0},{0,0,1,0}},{{0,0,0,0},{1,1,1,1},{0,0,0,0},{0,0,0,0}},{{0,0,1,0},{0,0,1,0},{0,0,1,0},{0,0,1,0}}},
-  // 1: Oミノ
   {{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}}},
-  // 2: Tミノ
   {{{0,0,0,0},{1,1,1,0},{0,1,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{0,1,1,0},{0,1,0,0},{0,0,0,0}}},
-  // 3: Jミノ
   {{{0,0,0,0},{1,1,1,0},{0,0,1,0},{0,0,0,0}},{{0,1,0,0},{0,1,0,0},{1,1,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,1,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}}},
-  // 4: Lミノ
   {{{0,0,0,0},{1,1,1,0},{1,0,0,0},{0,0,0,0}},{{1,1,0,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,0,1,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{0,1,0,0},{0,1,1,0},{0,0,0,0}}},
-  // 5: Sミノ
   {{{0,1,1,0},{1,1,0,0},{0,0,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,1,1,0},{1,1,0,0},{0,0,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}}},
-  // 6: Zミノ
   {{{1,1,0,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{1,0,0,0},{0,0,0,0}},{{1,1,0,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{1,0,0,0},{0,0,0,0}}}
 };
 
-// NEXTを描画するオフセット
-const int32_t next_offset_y[7] = {/*I*/0,/*O*/1, /*T*/1, /*J*/1, /*L*/1,/*S*/0, /*Z*/0};
+const int32_t next_offset_y[7] = {0, 1, 1, 1, 1, 0, 0};
 
 int board[BOARD_H][BOARD_W] = {0};
 
@@ -53,9 +44,12 @@ int score = 0, level = 0;
 unsigned long dropTimer = 0;
 unsigned long dropInterval = 500;
 bool gameOver = false, started = false;
-bool isClearingLines = false;                 // ライン消去演出中フラグ
+bool isClearingLines = false;
 
-// ================== 音の定義（★ユーザー指定の *2 に変更） ==================
+bool modeB = false;                          // false=A, true=B
+const unsigned long B_MODE_INTERVAL = 170;   // Bモード固定速度
+
+// ================== 音の定義 ==================
 const float tone_base_do = 261.626 * 2;
 const float tone_base_re = 293.665 * 2;
 const float tone_base_mi = 329.628 * 2;
@@ -66,7 +60,6 @@ const float tone_base_si = 493.883 * 2;
 const float tone_sharp = 1.06;
 
 const int tone_si0 = (int)(tone_base_si * 0.5);
-
 const int tone_do1 = (int)(tone_base_do * 1.0);
 const int tone_re1 = (int)(tone_base_re * 1.0);
 const int tone_mi1 = (int)(tone_base_mi * 1.0);
@@ -74,7 +67,6 @@ const int tone_fa1 = (int)(tone_base_fa * 1.0);
 const int tone_so1 = (int)(tone_base_so * 1.0);
 const int tone_ra1 = (int)(tone_base_ra * 1.0);
 const int tone_si1 = (int)(tone_base_si * 1.0);
-
 const int tone_do2 = (int)(tone_base_do * 2.0);
 const int tone_re2 = (int)(tone_base_re * 2.0);
 const int tone_mi2 = (int)(tone_base_mi * 2.0);
@@ -82,7 +74,6 @@ const int tone_fa2 = (int)(tone_base_fa * 2.0);
 const int tone_so2 = (int)(tone_base_so * 2.0);
 const int tone_ra2 = (int)(tone_base_ra * 2.0);
 const int tone_si2 = (int)(tone_base_si * 2.0);
-
 const int tone_do3 = (int)(tone_base_do * 3.0);
 const int tone_re3 = (int)(tone_base_re * 3.0);
 const int tone_mi3 = (int)(tone_base_mi * 3.0);
@@ -90,69 +81,64 @@ const int tone_fa3 = (int)(tone_base_fa * 3.0);
 const int tone_so3 = (int)(tone_base_so * 3.0);
 const int tone_ra3 = (int)(tone_base_ra * 3.0);
 const int tone_si3 = (int)(tone_base_si * 3.0);
-
 const int tone_do4 = (int)(tone_base_do * 4.0);
 
-// 音の長さ
-const int len0 = 20; // ★1音ごとの無音隙間(20ms)
+const int len0 = 20;
 const int len1 = 200;
 const int len2 = 400;
 const int len3 = 600;
 const int len4 = 800;
 
-// 音符の構造体
 struct Note {
   int freq;
   int duration;
 };
 
-// テトリス BGM
 const float spd_tetorisu = 1.05;
 const Note tetorisu[] = {
-  {tone_mi2, (int)(len2/spd_tetorisu)},//ミー
-  {tone_si1, (int)(len1/spd_tetorisu)},//シ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_re2, (int)(len2/spd_tetorisu)},//レー
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_si1, (int)(len1/spd_tetorisu)},//シ
-  {tone_ra1, (int)(len2/spd_tetorisu)},//ラー
-  {tone_ra1, (int)(len1/spd_tetorisu)},//ラ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_mi2, (int)(len2/spd_tetorisu)},//ミー
-  {tone_re2, (int)(len1/spd_tetorisu)},//レ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_si1, (int)(len2/spd_tetorisu)},//シー
-  {tone_si1, (int)(len1/spd_tetorisu)},//シ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_re2, (int)(len2/spd_tetorisu)},//レー
-  {tone_mi2, (int)(len2/spd_tetorisu)},//ミー
-  {tone_do2, (int)(len2/spd_tetorisu)},//ドー
-  {tone_ra1, (int)(len2/spd_tetorisu)},//ラー
-  {tone_ra1, (int)(len3/spd_tetorisu)},//ラー
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_re2, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len3/spd_tetorisu)},
   {0,        (int)(len1/spd_tetorisu)},
-  {tone_re2, (int)(len2/spd_tetorisu)},//レー
-  {tone_fa2, (int)(len1/spd_tetorisu)},//ファ
-  {tone_ra2, (int)(len2/spd_tetorisu)},//ラー
-  {tone_so2, (int)(len1/spd_tetorisu)},//ソ
-  {tone_fa2, (int)(len1/spd_tetorisu)},//ファ
-  {tone_mi2, (int)(len3/spd_tetorisu)},//ミー
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_mi2, (int)(len2/spd_tetorisu)},//ミー
-  {tone_re2, (int)(len1/spd_tetorisu)},//レ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_si1, (int)(len2/spd_tetorisu)},//シー
-  {tone_si1, (int)(len1/spd_tetorisu)},//シ
-  {tone_do2, (int)(len1/spd_tetorisu)},//ド
-  {tone_re2, (int)(len2/spd_tetorisu)},//レー
-  {tone_mi2, (int)(len2/spd_tetorisu)},//ミー
-  {tone_do2, (int)(len2/spd_tetorisu)},//ドー
-  {tone_ra1, (int)(len2/spd_tetorisu)},//ラー
-  {tone_ra1, (int)(len3/spd_tetorisu)},//ラー
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_fa2, (int)(len1/spd_tetorisu)},
+  {tone_ra2, (int)(len2/spd_tetorisu)},
+  {tone_so2, (int)(len1/spd_tetorisu)},
+  {tone_fa2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len3/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_re2, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len3/spd_tetorisu)},
   {0,        (int)(len1/spd_tetorisu)},
 };
 const int tetorisu_len = sizeof(tetorisu) / sizeof(Note);
 
-// 効果音（クリアライン）
 const Note clear_lines[] = {
   {tone_do1, len1/4},
   {tone_do1*tone_sharp, len1/4},
@@ -176,7 +162,6 @@ const Note clear_lines4[] = {
 };
 const int clear_lines_len4 = sizeof(clear_lines4) / sizeof(Note);
 
-// ゲームオーバー音
 const Note gameover_melody[] = {
   {tone_do1, len1/4},
   {tone_do1*tone_sharp, len1/4},
@@ -195,22 +180,19 @@ const Note gameover_melody[] = {
 };
 const int gameover_melody_len = sizeof(gameover_melody) / sizeof(Note);
 
-
-// ================== オーディオ管理システム = ==================
+// ================== オーディオ管理 ==================
 int bgmTotalDuration = 0;
 unsigned long bgmStartTime = 0;
 
-// 1段の簡易Queue（効果音の割り込み用変数）
 volatile const Note* interruptMelody = NULL;
 volatile int interruptMelodyLength = 0;
 volatile unsigned long interruptStartTime = 0;
 volatile unsigned long interruptDuration = 0;
 
-// 効果音（割り込み）を開始する関数
 void playSE(const Note* melody, int length) {
   int totalDur = 0;
   for (int i = 0; i < length; i++) {
-    totalDur += melody[i].duration + len0; // ★各音のあとに20msの無音を含める
+    totalDur += melody[i].duration + len0;
   }
   interruptMelody = melody;
   interruptMelodyLength = length;
@@ -218,45 +200,40 @@ void playSE(const Note* melody, int length) {
   interruptStartTime = millis();
 }
 
-// バックグラウンドで音を再生し続けるスレッド
 void play_melody_thread(void *pvParameters) {
   int lastFreq = -1;
   while (1) {
     unsigned long now = millis();
     int currentFreq = 0;
 
-    // 1. 割り込み効果音の再生中かチェック
     if (interruptMelody != NULL) {
       if (now - interruptStartTime < interruptDuration) {
         unsigned long elapsed = now - interruptStartTime;
         unsigned long accum = 0;
         for (int i = 0; i < interruptMelodyLength; i++) {
-          int noteTotal = interruptMelody[i].duration + len0; // 音の長さ＋20ms隙間
+          int noteTotal = interruptMelody[i].duration + len0;
           if (elapsed < accum + noteTotal) {
-            // 元々の再生時間内なら音を鳴らし、最後の20msは無音(0)にする
             if (elapsed < accum + interruptMelody[i].duration) {
               currentFreq = interruptMelody[i].freq;
             } else {
-              currentFreq = 0; 
+              currentFreq = 0;
             }
             break;
           }
           accum += noteTotal;
         }
       } else {
-        interruptMelody = NULL; // 再生時間を過ぎたらBGMへ戻す
+        interruptMelody = NULL;
       }
     }
-    
-    // 2. 効果音が鳴っていない、かつゲーム中ならBGMを再生
+
     if (interruptMelody == NULL) {
       if (started && !gameOver && bgmTotalDuration > 0) {
         unsigned long elapsed = (now - bgmStartTime) % bgmTotalDuration;
         unsigned long accum = 0;
         for (int i = 0; i < tetorisu_len; i++) {
-          int noteTotal = tetorisu[i].duration + len0; // 音の長さ＋20ms隙間
+          int noteTotal = tetorisu[i].duration + len0;
           if (elapsed < accum + noteTotal) {
-            // 元々の再生時間内なら音を鳴らし、最後の20msは無音(0)にする
             if (elapsed < accum + tetorisu[i].duration) {
               currentFreq = tetorisu[i].freq;
             } else {
@@ -271,7 +248,6 @@ void play_melody_thread(void *pvParameters) {
       }
     }
 
-    // 周波数が変わったときだけブザーを操作（プチプチ音対策）
     if (currentFreq != lastFreq) {
       if (currentFreq > 0) {
         tone(PIN_BUZZER, currentFreq);
@@ -281,7 +257,7 @@ void play_melody_thread(void *pvParameters) {
       lastFreq = currentFreq;
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS); // 10ミリ秒ごとに状況チェック
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
@@ -300,8 +276,8 @@ void drawCurrentPiece();
 void drawNext();
 void drawUI();
 void drawGameOver();
+void placeGarbage();
 
-// 電池の電圧
 float batteryVoltage = 0.0;
 
 void setup() {
@@ -316,14 +292,12 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
 
-  // サウンダピン設定と、1音ごとの隙間(len0)を含めたBGMの総時間計算
   pinMode(PIN_BUZZER, OUTPUT);
   bgmTotalDuration = 0;
   for (int i = 0; i < tetorisu_len; i++) {
-    bgmTotalDuration += tetorisu[i].duration + len0; // ★総時間にも隙間20ms分を足す
+    bgmTotalDuration += tetorisu[i].duration + len0;
   }
-  
-  // バックグラウンドタスク（スレッド）を起動
+
   xTaskCreate(play_melody_thread, "play_melody_thread", 2048, NULL, 1, NULL);
 
   u8g2.begin();
@@ -332,8 +306,7 @@ void setup() {
   u8g2.setContrast(60);
   u8g2.setFont(u8g2_font_5x7_tf);
 
-  // 乾電池の電圧測定
-  delay(1*1000);
+  delay(1000);
   int readv = analogRead(PIN_VOLTAGE);
   const float VOLT = 6.6;
   const float ANALOG_MAX = 4096.0;
@@ -343,16 +316,30 @@ void setup() {
 }
 
 void loop() {
-  bool down = (digitalRead(PIN_DOWN) == LOW );
-  bool rot = (digitalRead(PIN_ROTATE) == LOW );
   if (!started) {
-    if (rot) { delay(200); startGame(); }
+    static unsigned long lastModeChange = 0;
+    if (millis() - lastModeChange > 200) {
+      if (digitalRead(PIN_LEFT) == LOW || digitalRead(PIN_RIGHT) == LOW) {
+        modeB = !modeB;
+        showLogo();
+        lastModeChange = millis();
+      }
+    }
+    if (digitalRead(PIN_ROTATE) == LOW) {
+      delay(200);
+      startGame();
+    }
     return;
   }
-  if (gameOver) { drawGameOver(); return; }
+
+  if (gameOver) {
+    drawGameOver();
+    return;
+  }
 
   handleInput();
 
+  bool down = (digitalRead(PIN_DOWN) == LOW);
   unsigned long currentInterval = down ? 40 : dropInterval;
 
   if (millis() - dropTimer > currentInterval) {
@@ -368,12 +355,14 @@ void loop() {
 void showLogo() {
   u8g2.clearBuffer();
 
-  // 中央付近にロゴ（64幅を基準にざっくり中央）
-  u8g2.drawStr(17, 45, "TETRIS");      // 6文字×5px=30 → (64-30)/2=17
-  u8g2.drawStr(14, 60, "Press A");     // 7文字×5px=35 → (64-35)/2≈14
-  u8g2.drawStr(12, 75, "to start");    // 8文字×5px=40 → (64-40)/2=12
+  u8g2.drawStr(17, 40, "TETRIS");
+  u8g2.drawStr(14, 55, "Press A");
+  u8g2.drawStr(12, 70, "to start");
 
-  // 電圧は下寄せ
+  u8g2.setCursor(12, 90);
+  u8g2.print("MODE:");
+  u8g2.print(modeB ? "B" : "A");
+
   u8g2.setCursor(8, 120);
   u8g2.print("batt ");
   u8g2.print(batteryVoltage, 2);
@@ -382,16 +371,40 @@ void showLogo() {
   u8g2.sendBuffer();
 }
 
+void placeGarbage() {
+  for (int y = BOARD_H - 10; y < BOARD_H; y++) {
+    int count = random(1, 10);  // 1〜9
+    bool used[BOARD_W] = {false};
+    for (int i = 0; i < count; i++) {
+      int x;
+      do {
+        x = random(BOARD_W);
+      } while (used[x]);
+      used[x] = true;
+      board[y][x] = 1;
+    }
+  }
+}
+
 void startGame() {
   randomSeed(millis());
   memset(board, 0, sizeof(board));
-  score = 0; level = 0;
-  dropInterval = 500;
+  score = 0;
+  level = 0;
+
+  if (modeB) {
+    dropInterval = B_MODE_INTERVAL;
+    placeGarbage();
+  } else {
+    dropInterval = 500;
+  }
+
   nextPiece = random(7);
   spawnNewPiece();
-  started = true; gameOver = false;
+  started = true;
+  gameOver = false;
   dropTimer = millis();
-  bgmStartTime = millis(); 
+  bgmStartTime = millis();
 }
 
 void spawnNewPiece() {
@@ -402,7 +415,7 @@ void spawnNewPiece() {
   posY = 0;
   if (collision()) {
     gameOver = true;
-    playSE(gameover_melody, gameover_melody_len); 
+    playSE(gameover_melody, gameover_melody_len);
   }
 }
 
@@ -458,50 +471,46 @@ void clearLines() {
 
   if (lines == 0) return;
 
-  // ライン消去されたのでマリオ1UP音を割り込み再生
   if (lines == 4) {
     playSE(clear_lines4, clear_lines_len4);
   } else {
     playSE(clear_lines, clear_lines_len);
   }
 
-  isClearingLines = true; 
+  isClearingLines = true;
 
   int tempBoard[BOARD_H][BOARD_W];
   memcpy(tempBoard, board, sizeof(board));
 
   for (int i = 0; i < 3; i++) {
-    // 【消灯】
     for (int y = 0; y < BOARD_H; y++) {
       if (lineFull[y]) {
         for (int x = 0; x < BOARD_W; x++) board[y][x] = 0;
       }
     }
-    digitalWrite(PIN_LED, LOW); 
+    digitalWrite(PIN_LED, LOW);
     drawAll();
     u8g2.sendBuffer();
-    delay(100);                  
+    delay(100);
 
-    // 【点灯】
     memcpy(board, tempBoard, sizeof(board));
-    digitalWrite(PIN_LED, HIGH);  
+    digitalWrite(PIN_LED, HIGH);
     drawAll();
     u8g2.sendBuffer();
-    delay(100);                  
+    delay(100);
   }
-  
-  digitalWrite(PIN_LED, LOW);   
-  isClearingLines = false;       
 
-  // 実際の消去処理
-  for (int y = BOARD_H-1; y >= 0; y--) {
+  digitalWrite(PIN_LED, LOW);
+  isClearingLines = false;
+
+  for (int y = BOARD_H - 1; y >= 0; y--) {
     bool full = true;
     for (int x = 0; x < BOARD_W; x++) {
       if (!board[y][x]) { full = false; break; }
     }
     if (full) {
       for (int yy = y; yy > 0; yy--) {
-        for (int x = 0; x < BOARD_W; x++) board[yy][x] = board[yy-1][x];
+        for (int x = 0; x < BOARD_W; x++) board[yy][x] = board[yy - 1][x];
       }
       memset(board[0], 0, BOARD_W * sizeof(int));
       y++;
@@ -510,7 +519,7 @@ void clearLines() {
 
   if (lines) {
     score += lines;
-    if (score / 10 > level) {
+    if (!modeB && score / 10 > level) {
       level = score / 10;
       dropInterval = max(100, 500 - level * 30);
     }
@@ -554,7 +563,7 @@ void drawBoard() {
 }
 
 void drawCurrentPiece() {
-  if (isClearingLines) return; 
+  if (isClearingLines) return;
 
   for (int y = 0; y < 4; y++) {
     for (int x = 0; x < 4; x++) {
@@ -569,11 +578,11 @@ void drawCurrentPiece() {
 
 void drawNext() {
   const int pos_y = 6;
-  const int pos_x = 38;   // 元28 + 4
+  const int pos_x = 38;
 
   const int NEXT_BLOCK = 4;
   const int NEXT_GAP   = 1;
-  const int NEXT_CELL  = NEXT_BLOCK + NEXT_GAP;  // 5
+  const int NEXT_CELL  = NEXT_BLOCK + NEXT_GAP;
 
   int offset_y = next_offset_y[nextPiece];
   for (int y = 0; y < 2; y++) {
@@ -596,14 +605,12 @@ void drawUI() {
 void drawGameOver() {
   u8g2.clearBuffer();
 
-  // 中央付近
-  u8g2.drawStr(22, 50, "GAME");     // 4文字×5px=20 → (64-20)/2=22
+  u8g2.drawStr(22, 50, "GAME");
   u8g2.drawStr(22, 65, "OVER");
 
   u8g2.setCursor(17, 90);
-  u8g2.print("LINES:");             // 6文字×5px=30 → (64-30)/2=17
+  u8g2.print("LINES:");
 
-  // スコアは桁によってずれるので、おおよそ中央
   char buf[8];
   snprintf(buf, sizeof(buf), "%d", score);
   int scoreWidth = strlen(buf) * 5;
@@ -615,5 +622,6 @@ void drawGameOver() {
   if (digitalRead(PIN_ROTATE) == LOW) {
     delay(200);
     started = false;
+    showLogo();
   }
 }
