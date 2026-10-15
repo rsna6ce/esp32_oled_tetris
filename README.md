@@ -1,1 +1,1 @@
-# esp32c2_oled_tetris2
+# esp32_oled_tetris
