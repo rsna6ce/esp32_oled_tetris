@@ -279,6 +279,7 @@ void drawGameOver();
 void placeGarbage();
 
 float batteryVoltage = 0.0;
+unsigned long graceUntil = 0;   // この時刻まで自動落下しない
 
 void setup() {
   Serial.begin(115200);
@@ -339,12 +340,15 @@ void loop() {
 
   handleInput();
 
-  bool down = (digitalRead(PIN_DOWN) == LOW);
-  unsigned long currentInterval = down ? 40 : dropInterval;
+  // 自動落下（猶予中はスキップ）
+  if (millis() >= graceUntil) {
+    bool down = (digitalRead(PIN_DOWN) == LOW);
+    unsigned long currentInterval = down ? 40 : dropInterval;
 
-  if (millis() - dropTimer > currentInterval) {
-    dropTimer = millis();
-    if (!moveDown()) lockPiece();
+    if (millis() - dropTimer > currentInterval) {
+      dropTimer = millis();
+      if (!moveDown()) lockPiece();
+    }
   }
   drawAll();
   u8g2.sendBuffer();
@@ -395,8 +399,10 @@ void startGame() {
   if (modeB) {
     dropInterval = B_MODE_INTERVAL;
     placeGarbage();
+    graceUntil = millis() + 1000;   // 1000msの初見猶予
   } else {
     dropInterval = 500;
+    graceUntil = 0;
   }
 
   nextPiece = random(7);
