@@ -278,7 +278,6 @@ void drawUI();
 void drawGameOver();
 void placeGarbage();
 
-float batteryVoltage = 0.0;
 unsigned long graceUntil = 0;   // この時刻まで自動落下しない
 
 void setup() {
@@ -308,12 +307,17 @@ void setup() {
   u8g2.setFont(u8g2_font_5x7_tf);
 
   delay(1000);
+  getBattVoltage();
+
+  showLogo();
+}
+
+float getBattVoltage() {
   int readv = analogRead(PIN_VOLTAGE);
   const float VOLT = 6.6;
   const float ANALOG_MAX = 4096.0;
-  batteryVoltage = ((float)readv * VOLT) / ANALOG_MAX;
-
-  showLogo();
+  float voltage = ((float)readv * VOLT) / ANALOG_MAX;
+  return voltage;
 }
 
 void loop() {
@@ -369,7 +373,7 @@ void showLogo() {
 
   u8g2.setCursor(8, 120);
   u8g2.print("batt ");
-  u8g2.print(batteryVoltage, 2);
+  u8g2.print(getBattVoltage(), 2);
   u8g2.print("V");
 
   u8g2.sendBuffer();
@@ -539,10 +543,27 @@ void handleInput() {
   if (digitalRead(PIN_LEFT) == LOW)  { posX--; if (collision()) posX++; last = millis(); }
   if (digitalRead(PIN_RIGHT) == LOW) { posX++; if (collision()) posX--; last = millis(); }
   if (digitalRead(PIN_ROTATE) == LOW) {
-    rotation = (rotation + 1) % 4;
-    if (collision()) rotation = (rotation + 3) % 4;
+    tryRotate();
     last = millis();
   }
+}
+
+void tryRotate() {
+  int oldRot = rotation;
+  rotation = (rotation + 1) % 4;
+  if (!collision()) return;          // そのまま成功
+
+  // 右に1マスキック
+  posX++;
+  if (!collision()) return;
+
+  // 左に1マスキック（元位置から）
+  posX -= 2;
+  if (!collision()) return;
+
+  // どちらもダメなら元に戻す
+  posX++;
+  rotation = oldRot;
 }
 
 // ================== 描画 ==================
