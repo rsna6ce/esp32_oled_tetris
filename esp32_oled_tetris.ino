@@ -20,9 +20,9 @@ const int BLOCK_SIZE = 4;
 const int GAP = 1;                            // 縦長なので隙間1pxを確保
 const int CELL = BLOCK_SIZE + GAP;           // 1マス = 3ピクセル
 
-// 盤面サイズ：横 30px、縦 54px
-const int BOARD_X = 5;                        // 左右余白
-const int BOARD_Y = 15;                       // 上部にUIスペースを確保
+// 盤面サイズ：横 50px、縦 90px
+const int BOARD_X = 7;    // (64 - 50) / 2 ≈ 7
+const int BOARD_Y = 24;   // 128 - 90 - 枠分の余裕
 
 // テトリミノ定義 [7種類][4回転状態][4行][4列] (ゲームボーイ版準拠)
 const uint8_t tetrominoes[7][4][4][4] = {
@@ -301,6 +301,9 @@ void drawNext();
 void drawUI();
 void drawGameOver();
 
+// 電池の電圧
+float batteryVoltage = 0.0;
+
 void setup() {
   Serial.begin(115200);
   Serial.println("hello. esp32_oled_tetris.");
@@ -332,13 +335,9 @@ void setup() {
   // 乾電池の電圧測定
   delay(1*1000);
   int readv = analogRead(PIN_VOLTAGE);
-  const float VOLT = 6.6; // 3.3V Resistor Divider 1/2
+  const float VOLT = 6.6;
   const float ANALOG_MAX = 4096.0;
-  float voltf = ((float)readv * VOLT) / ANALOG_MAX;
-  String volts = String(voltf, 2);
-  Serial.print("Battery Volts:");
-  Serial.print(volts);
-  Serial.print(" V");
+  batteryVoltage = ((float)readv * VOLT) / ANALOG_MAX;
 
   showLogo();
 }
@@ -368,9 +367,18 @@ void loop() {
 // ================== コア関数 ==================
 void showLogo() {
   u8g2.clearBuffer();
-  u8g2.drawStr(5, 15, "TETRIS");
-  u8g2.drawStr(10, 35, "BOOT");
-  u8g2.drawStr(2, 45, "to start");
+
+  // 中央付近にロゴ（64幅を基準にざっくり中央）
+  u8g2.drawStr(17, 45, "TETRIS");      // 6文字×5px=30 → (64-30)/2=17
+  u8g2.drawStr(14, 60, "Press A");     // 7文字×5px=35 → (64-35)/2≈14
+  u8g2.drawStr(12, 75, "to start");    // 8文字×5px=40 → (64-40)/2=12
+
+  // 電圧は下寄せ
+  u8g2.setCursor(8, 120);
+  u8g2.print("batt ");
+  u8g2.print(batteryVoltage, 2);
+  u8g2.print("V");
+
   u8g2.sendBuffer();
 }
 
@@ -560,34 +568,52 @@ void drawCurrentPiece() {
 }
 
 void drawNext() {
-  const int pos_y = 1;
-  const int pos_x = 28;
+  const int pos_y = 6;
+  const int pos_x = 38;   // 元28 + 4
+
+  const int NEXT_BLOCK = 4;
+  const int NEXT_GAP   = 1;
+  const int NEXT_CELL  = NEXT_BLOCK + NEXT_GAP;  // 5
 
   int offset_y = next_offset_y[nextPiece];
   for (int y = 0; y < 2; y++) {
     for (int x = 0; x < 4; x++) {
       if (tetrominoes[nextPiece][0][y + offset_y][x]) {
-        u8g2.drawBox(pos_x + 1 + x * 3, pos_y + 1 + y * 3, 2, 2);
+        u8g2.drawBox(pos_x + x * NEXT_CELL,
+                     pos_y + y * NEXT_CELL,
+                     NEXT_BLOCK, NEXT_BLOCK);
       }
     }
   }
 }
 
 void drawUI() {
-  u8g2.setCursor(2, 9);
+  u8g2.setCursor(6, 14);
   u8g2.print("L:");
   u8g2.print(score);
 }
 
 void drawGameOver() {
   u8g2.clearBuffer();
-  u8g2.drawStr(10, 15, "GAME");
-  u8g2.drawStr(10, 25, "OVER");
-  u8g2.setCursor(5, 45);
-  u8g2.print("LINES:");
-  u8g2.setCursor(10, 55);
+
+  // 中央付近
+  u8g2.drawStr(22, 50, "GAME");     // 4文字×5px=20 → (64-20)/2=22
+  u8g2.drawStr(22, 65, "OVER");
+
+  u8g2.setCursor(17, 90);
+  u8g2.print("LINES:");             // 6文字×5px=30 → (64-30)/2=17
+
+  // スコアは桁によってずれるので、おおよそ中央
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%d", score);
+  int scoreWidth = strlen(buf) * 5;
+  u8g2.setCursor((64 - scoreWidth) / 2, 105);
   u8g2.print(score);
+
   u8g2.sendBuffer();
-  
-  if (digitalRead(PIN_ROTATE) == LOW )  { delay(200); started = false; }
+
+  if (digitalRead(PIN_ROTATE) == LOW) {
+    delay(200);
+    started = false;
+  }
 }
