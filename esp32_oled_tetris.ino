@@ -537,14 +537,18 @@ void clearLines() {
 }
 
 void handleInput() {
-  static unsigned long last = 0;
-  if (millis() - last < 130) return;
-
-  if (digitalRead(PIN_LEFT) == LOW)  { posX--; if (collision()) posX++; last = millis(); }
-  if (digitalRead(PIN_RIGHT) == LOW) { posX++; if (collision()) posX--; last = millis(); }
-  if (digitalRead(PIN_ROTATE) == LOW) {
-    tryRotate();
-    last = millis();
+  static unsigned long lastMove = 0;
+  if (millis() - lastMove > 130) {
+    if (digitalRead(PIN_LEFT) == LOW)  { posX--; if (collision()) posX++; lastMove = millis(); }
+    if (digitalRead(PIN_RIGHT) == LOW) { posX++; if (collision()) posX--; lastMove = millis(); }
+  }
+  
+  static unsigned long lastRotate = 0;
+  if (millis() - lastRotate > 150) {
+    if (digitalRead(PIN_ROTATE) == LOW) {
+      tryRotate();
+      lastRotate = millis();
+    }
   }
 }
 
