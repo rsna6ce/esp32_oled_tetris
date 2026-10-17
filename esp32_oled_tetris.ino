@@ -47,6 +47,7 @@ bool gameOver = false, started = false;
 bool isClearingLines = false;
 
 bool modeB = false;                          // false=A, true=B
+bool slowMode = false;                       // 子供用スロー（Aモード専用）
 const unsigned long B_MODE_INTERVAL = 170;   // Bモード固定速度
 
 // ================== 音の定義 ==================
@@ -247,6 +248,20 @@ const Note gameover_melody[] = {
 };
 const int gameover_melody_len = sizeof(gameover_melody) / sizeof(Note);
 
+// ファンファーレ
+const Note fanfare[] = {
+  {0,         100},
+  {tone_so1,  100},
+  {tone_do2,  100},
+  {tone_mi2,  100},
+  {tone_so2,  100},
+  {0,         100},
+  {tone_mi2,  100},
+  {tone_so2,  300},
+  {0,         200}
+};
+const int fanfare_len = sizeof(fanfare) / sizeof(Note);
+
 // ================== オーディオ管理 ==================
 int bgmTotalDuration = 0;
 unsigned long bgmStartTime = 0;
@@ -344,8 +359,9 @@ void drawNext();
 void drawUI();
 void drawGameOver();
 void placeGarbage();
+void tryRotate();
 
-unsigned long graceUntil = 0;   // この時刻まで自動落下しない
+unsigned long graceUntil = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -399,6 +415,8 @@ void loop() {
     }
     if (digitalRead(PIN_ROTATE) == LOW) {
       delay(200);
+      // AモードでDOWNを押しながらスタートしたらスロー
+      slowMode = (!modeB && digitalRead(PIN_DOWN) == LOW);
       startGame();
     }
     return;
@@ -470,7 +488,8 @@ void startGame() {
   if (modeB) {
     dropInterval = B_MODE_INTERVAL;
     placeGarbage();
-    graceUntil = millis() + 1000;   // 1000msの初見猶予
+    graceUntil = millis() + 1000;
+    slowMode = false;
   } else {
     dropInterval = 500;
     graceUntil = 0;
@@ -595,8 +614,16 @@ void clearLines() {
   }
 
   if (lines) {
+    int oldScore = score;
     score += lines;
-    if (!modeB && score / 10 > level) {
+
+    // Bモードで初めて25を超えた音
+    if (modeB && oldScore < 25 && score >= 25) {
+      playSE(fanfare, fanfare_len);
+    }
+
+    // Aモードかつスローでないときだけ加速
+    if (!modeB && !slowMode && score / 10 > level) {
       level = score / 10;
       dropInterval = max(100, 500 - level * 30);
     }
@@ -622,17 +649,14 @@ void handleInput() {
 void tryRotate() {
   int oldRot = rotation;
   rotation = (rotation + 1) % 4;
-  if (!collision()) return;          // そのまま成功
+  if (!collision()) return;
 
-  // 右に1マスキック
   posX++;
   if (!collision()) return;
 
-  // 左に1マスキック（元位置から）
   posX -= 2;
   if (!collision()) return;
 
-  // どちらもダメなら元に戻す
   posX++;
   rotation = oldRot;
 }
