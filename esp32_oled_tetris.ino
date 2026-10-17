@@ -88,6 +88,7 @@ const int len1 = 200;
 const int len2 = 400;
 const int len3 = 600;
 const int len4 = 800;
+const int len5 = 1000;
 
 struct Note {
   int freq;
@@ -136,6 +137,72 @@ const Note tetorisu[] = {
   {tone_ra1, (int)(len2/spd_tetorisu)},
   {tone_ra1, (int)(len3/spd_tetorisu)},
   {0,        (int)(len1/spd_tetorisu)},
+
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_re2, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len3/spd_tetorisu)},
+  {0,        (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_fa2, (int)(len1/spd_tetorisu)},
+  {tone_ra2, (int)(len2/spd_tetorisu)},
+  {tone_so2, (int)(len1/spd_tetorisu)},
+  {tone_fa2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len3/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_re2, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_si1, (int)(len2/spd_tetorisu)},
+  {tone_si1, (int)(len1/spd_tetorisu)},
+  {tone_do2, (int)(len1/spd_tetorisu)},
+  {tone_re2, (int)(len2/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_do2, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len2/spd_tetorisu)},
+  {tone_ra1, (int)(len3/spd_tetorisu)},
+  {0,        (int)(len1/spd_tetorisu)},
+
+  {tone_mi2, (int)(len4/spd_tetorisu)},
+  {tone_do2, (int)(len4/spd_tetorisu)},
+  {tone_re2, (int)(len4/spd_tetorisu)},
+  {tone_si1, (int)(len4/spd_tetorisu)},
+  {tone_do2, (int)(len4/spd_tetorisu)},
+  {tone_ra1, (int)(len4/spd_tetorisu)},
+  {tone_so1*tone_sharp, (int)(len4/spd_tetorisu)},
+  {tone_si1, (int)(len4/spd_tetorisu)},
+  {tone_mi2, (int)(len4/spd_tetorisu)},
+  {tone_do2, (int)(len4/spd_tetorisu)},
+  {tone_re2, (int)(len4/spd_tetorisu)},
+  {tone_si1, (int)(len4/spd_tetorisu)},
+  {tone_do2, (int)(len2/spd_tetorisu)},
+  {tone_mi2, (int)(len2/spd_tetorisu)},
+  {tone_ra2, (int)(len4/spd_tetorisu)},
+  {tone_so2*tone_sharp, (int)(len5/spd_tetorisu)},
+  {0,        (int)(len1/spd_tetorisu)},
+
+  {tone_mi2, (int)(16/spd_tetorisu)}, //ta,ta,ta
+  {0,        (int)(120/spd_tetorisu)},
+  {tone_mi2, (int)(16/spd_tetorisu)},
+  {0,        (int)(120/spd_tetorisu)},
+  {tone_mi2, (int)(16/spd_tetorisu)},
+  {0,        (int)(120/spd_tetorisu)},
 };
 const int tetorisu_len = sizeof(tetorisu) / sizeof(Note);
 
