@@ -46,9 +46,11 @@ unsigned long dropInterval = 500;
 bool gameOver = false, started = false;
 bool isClearingLines = false;
 
-bool modeB = false;                          // false=A, true=B
-bool slowMode = false;                       // 子供用スロー（Aモード専用）
-const unsigned long B_MODE_INTERVAL = 170;   // Bモード固定速度
+// mode: 0=A, 1=B, 2=0(A+スロー)
+int gameMode = 0;
+bool modeB = false;
+bool slowMode = false;
+const unsigned long B_MODE_INTERVAL = 170;
 
 // ================== 音の定義 ==================
 const float tone_base_do = 261.626 * 2;
@@ -198,7 +200,7 @@ const Note tetorisu[] = {
   {tone_so2*tone_sharp, (int)(len5/spd_tetorisu)},
   {0,        (int)(len1/spd_tetorisu)},
 
-  {tone_mi2, (int)(16/spd_tetorisu)}, //ta,ta,ta
+  {tone_mi2, (int)(16/spd_tetorisu)},
   {0,        (int)(120/spd_tetorisu)},
   {tone_mi2, (int)(16/spd_tetorisu)},
   {0,        (int)(120/spd_tetorisu)},
@@ -248,7 +250,6 @@ const Note gameover_melody[] = {
 };
 const int gameover_melody_len = sizeof(gameover_melody) / sizeof(Note);
 
-// ファンファーレ
 const Note fanfare[] = {
   {0,         100},
   {tone_so1,  100},
@@ -262,7 +263,6 @@ const Note fanfare[] = {
 };
 const int fanfare_len = sizeof(fanfare) / sizeof(Note);
 
-// レベルアップ音（Aモード）
 const Note level_up[] = {
   {0,        100},
   {tone_mi3, 100},
@@ -419,16 +419,19 @@ void loop() {
   if (!started) {
     static unsigned long lastModeChange = 0;
     if (millis() - lastModeChange > 200) {
-      if (digitalRead(PIN_LEFT) == LOW || digitalRead(PIN_RIGHT) == LOW) {
-        modeB = !modeB;
+      if (digitalRead(PIN_RIGHT) == LOW) {
+        gameMode = (gameMode + 1) % 3;   // A→B→0→A
+        showLogo();
+        lastModeChange = millis();
+      }
+      if (digitalRead(PIN_LEFT) == LOW) {
+        gameMode = (gameMode + 2) % 3;   // 逆回り
         showLogo();
         lastModeChange = millis();
       }
     }
     if (digitalRead(PIN_ROTATE) == LOW) {
       delay(200);
-      // AモードでDOWNを押しながらスタートしたらスロー
-      slowMode = (!modeB && digitalRead(PIN_DOWN) == LOW);
       startGame();
     }
     return;
@@ -441,7 +444,6 @@ void loop() {
 
   handleInput();
 
-  // 自動落下（猶予中はスキップ）
   if (millis() >= graceUntil) {
     bool down = (digitalRead(PIN_DOWN) == LOW);
     unsigned long currentInterval = down ? 40 : dropInterval;
@@ -466,7 +468,9 @@ void showLogo() {
 
   u8g2.setCursor(12, 90);
   u8g2.print("MODE:");
-  u8g2.print(modeB ? "B" : "A");
+  if (gameMode == 0)      u8g2.print("A");
+  else if (gameMode == 1) u8g2.print("B");
+  else                    u8g2.print("0");
 
   u8g2.setCursor(8, 120);
   u8g2.print("batt ");
@@ -478,7 +482,7 @@ void showLogo() {
 
 void placeGarbage() {
   for (int y = BOARD_H - 10; y < BOARD_H; y++) {
-    int count = random(1, 10);  // 1〜9
+    int count = random(1, 10);
     bool used[BOARD_W] = {false};
     for (int i = 0; i < count; i++) {
       int x;
@@ -497,11 +501,13 @@ void startGame() {
   score = 0;
   level = 0;
 
+  modeB    = (gameMode == 1);
+  slowMode = (gameMode == 2);
+
   if (modeB) {
     dropInterval = B_MODE_INTERVAL;
     placeGarbage();
     graceUntil = millis() + 1000;
-    slowMode = false;
   } else {
     dropInterval = 500;
     graceUntil = 0;
@@ -629,16 +635,14 @@ void clearLines() {
     int oldScore = score;
     score += lines;
 
-    // Bモードで初めて25を超えた音
     if (modeB && oldScore < 25 && score >= 25) {
       playSE(fanfare, fanfare_len);
     }
 
-    // Aモードかつスローでないときだけ加速
     if (!modeB && !slowMode && score / 10 > level) {
       level = score / 10;
       dropInterval = max(100, 500 - level * 30);
-      playSE(level_up, level_up_len);   // レベルアップ音
+      playSE(level_up, level_up_len);
     }
   }
 }
@@ -649,7 +653,7 @@ void handleInput() {
     if (digitalRead(PIN_LEFT) == LOW)  { posX--; if (collision()) posX++; lastMove = millis(); }
     if (digitalRead(PIN_RIGHT) == LOW) { posX++; if (collision()) posX--; lastMove = millis(); }
   }
-  
+
   static unsigned long lastRotate = 0;
   if (millis() - lastRotate > 150) {
     if (digitalRead(PIN_ROTATE) == LOW) {
