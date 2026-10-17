@@ -262,6 +262,18 @@ const Note fanfare[] = {
 };
 const int fanfare_len = sizeof(fanfare) / sizeof(Note);
 
+// レベルアップ音（Aモード）
+const Note level_up[] = {
+  {0,        100},
+  {tone_mi3, 100},
+  {tone_do3, 100},
+  {tone_re3, 100},
+  {tone_mi3, 100},
+  {tone_do3, 100},
+  {0,        100}
+};
+const int level_up_len = sizeof(level_up) / sizeof(Note);
+
 // ================== オーディオ管理 ==================
 int bgmTotalDuration = 0;
 unsigned long bgmStartTime = 0;
@@ -626,6 +638,7 @@ void clearLines() {
     if (!modeB && !slowMode && score / 10 > level) {
       level = score / 10;
       dropInterval = max(100, 500 - level * 30);
+      playSE(level_up, level_up_len);   // レベルアップ音
     }
   }
 }
