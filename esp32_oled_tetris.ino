@@ -1,6 +1,9 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 
+#define USE_ESP32C3
+#if !defined(USE_ESP32C3)
+// ESP32 Devkit系
 // ================== ピン設定 ==================
 #define PIN_DOWN    16
 #define PIN_LEFT    17
@@ -9,9 +12,21 @@
 #define PIN_LED      2     // オンボードLED
 #define PIN_BUZZER  23     // 圧電サウンダ
 #define PIN_VOLTAGE 26
-
 // ================== U8g2 ==================
 U8G2_SSD1309_128X64_NONAME0_F_HW_I2C u8g2(U8G2_R1, U8X8_PIN_NONE, /*SCL*/22, /*SDA*/21);
+#else
+// ESP32 C3系
+// ================== ピン設定 ==================
+#define PIN_DOWN    2
+#define PIN_LEFT    4
+#define PIN_RIGHT   7
+#define PIN_ROTATE  10
+#define PIN_LED      8     // オンボードLED
+#define PIN_BUZZER  20     // 圧電サウンダ
+#define PIN_VOLTAGE 3
+// ================== U8g2 ==================
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, U8X8_PIN_NONE, /*SCL*/6, /*SDA*/5);
+#endif
 
 // ================== ゲーム定数 ==================
 const int BOARD_W = 10;
