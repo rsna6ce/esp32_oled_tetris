@@ -67,6 +67,10 @@ bool modeB = false;
 bool slowMode = false;
 const unsigned long B_MODE_INTERVAL = 170;
 
+// ミュート関連
+bool mute = false;               // false = 音あり, true = ミュート
+bool menuSelectMute = false;     // false = モード選択中, true = ミュート選択中
+
 // ================== 音の定義 ==================
 const float tone_base_do = 261.626 * 2;
 const float tone_base_re = 293.665 * 2;
@@ -357,6 +361,11 @@ void play_melody_thread(void *pvParameters) {
       }
     }
 
+    // ミュート時は強制無音
+    if (mute) {
+      currentFreq = 0;
+    }
+
     if (currentFreq != lastFreq) {
       if (currentFreq > 0) {
         tone(PIN_BUZZER, currentFreq);
@@ -432,19 +441,37 @@ float getBattVoltage() {
 
 void loop() {
   if (!started) {
-    static unsigned long lastModeChange = 0;
-    if (millis() - lastModeChange > 200) {
-      if (digitalRead(PIN_RIGHT) == LOW) {
-        gameMode = (gameMode + 1) % 3;   // A→B→0→A
+    static unsigned long lastChange = 0;
+    if (millis() - lastChange > 200) {
+      // DOWNキーでメニュー項目切り替え
+      if (digitalRead(PIN_DOWN) == LOW) {
+        menuSelectMute = !menuSelectMute;
         showLogo();
-        lastModeChange = millis();
+        lastChange = millis();
       }
-      if (digitalRead(PIN_LEFT) == LOW) {
-        gameMode = (gameMode + 2) % 3;   // 逆回り
-        showLogo();
-        lastModeChange = millis();
+
+      if (!menuSelectMute) {
+        // モード選択中
+        if (digitalRead(PIN_RIGHT) == LOW) {
+          gameMode = (gameMode + 1) % 3;   // A→B→0→A
+          showLogo();
+          lastChange = millis();
+        }
+        if (digitalRead(PIN_LEFT) == LOW) {
+          gameMode = (gameMode + 2) % 3;   // 逆回り
+          showLogo();
+          lastChange = millis();
+        }
+      } else {
+        // ミュート選択中
+        if (digitalRead(PIN_RIGHT) == LOW || digitalRead(PIN_LEFT) == LOW) {
+          mute = !mute;
+          showLogo();
+          lastChange = millis();
+        }
       }
     }
+
     if (digitalRead(PIN_ROTATE) == LOW) {
       delay(200);
       startGame();
@@ -481,12 +508,21 @@ void showLogo() {
   u8g2.drawStr(14, 55, "Press A");
   u8g2.drawStr(12, 70, "to start");
 
-  u8g2.setCursor(12, 90);
+  // MODE
+  u8g2.setCursor(8, 90);
+  u8g2.print(menuSelectMute ? " " : ">");
   u8g2.print("MODE:");
   if (gameMode == 0)      u8g2.print("A");
   else if (gameMode == 1) u8g2.print("B");
   else                    u8g2.print("0");
 
+  // MUTE
+  u8g2.setCursor(8, 105);
+  u8g2.print(menuSelectMute ? ">" : " ");
+  u8g2.print("MUTE:");
+  u8g2.print(mute ? "ON" : "OFF");
+
+  // Battery
   u8g2.setCursor(8, 120);
   u8g2.print("batt ");
   u8g2.print(getBattVoltage(), 2);
