@@ -40,12 +40,19 @@ const int BOARD_Y = 24;
 
 // テトリミノ定義
 const uint8_t tetrominoes[7][4][4][4] = {
+  // 0: Iミノ
   {{{0,0,0,0},{1,1,1,1},{0,0,0,0},{0,0,0,0}},{{0,0,1,0},{0,0,1,0},{0,0,1,0},{0,0,1,0}},{{0,0,0,0},{1,1,1,1},{0,0,0,0},{0,0,0,0}},{{0,0,1,0},{0,0,1,0},{0,0,1,0},{0,0,1,0}}},
+  // 1: Oミノ
   {{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}},{{0,0,0,0},{0,1,1,0},{0,1,1,0},{0,0,0,0}}},
+  // 2: Tミノ
   {{{0,0,0,0},{1,1,1,0},{0,1,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{0,1,1,0},{0,1,0,0},{0,0,0,0}}},
+  // 3: Jミノ
   {{{0,0,0,0},{1,1,1,0},{0,0,1,0},{0,0,0,0}},{{0,1,0,0},{0,1,0,0},{1,1,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,1,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}}},
+  // 4: Lミノ
   {{{0,0,0,0},{1,1,1,0},{1,0,0,0},{0,0,0,0}},{{1,1,0,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,0,1,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{0,1,0,0},{0,1,1,0},{0,0,0,0}}},
+  // 5: Sミノ
   {{{0,1,1,0},{1,1,0,0},{0,0,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}},{{0,1,1,0},{1,1,0,0},{0,0,0,0},{0,0,0,0}},{{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}}},
+  // 6: Zミノ
   {{{1,1,0,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{1,0,0,0},{0,0,0,0}},{{1,1,0,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},{{0,1,0,0},{1,1,0,0},{1,0,0,0},{0,0,0,0}}}
 };
 
@@ -70,6 +77,11 @@ const unsigned long B_MODE_INTERVAL = 170;
 // ミュート関連
 bool mute = false;               // false = 音あり, true = ミュート
 bool menuSelectMute = false;     // false = モード選択中, true = ミュート選択中
+
+// ミノ出現カウント
+int pieceCount[7] = {0};
+int totalPieces = 0;
+const char* pieceNames[7] = {"I", "O", "T", "J", "L", "S", "Z"};
 
 // ================== 音の定義 ==================
 const float tone_base_do = 261.626 * 2;
@@ -396,6 +408,7 @@ void drawUI();
 void drawGameOver();
 void placeGarbage();
 void tryRotate();
+void printPieceStats();
 
 unsigned long graceUntil = 0;
 
@@ -412,6 +425,10 @@ void setup() {
   digitalWrite(PIN_LED, LOW);
 
   pinMode(PIN_BUZZER, OUTPUT);
+  ledcSetup(0, 1000, 8);
+  ledcAttachPin(PIN_BUZZER, 0);
+  ledcWrite(0, 0);
+
   bgmTotalDuration = 0;
   for (int i = 0; i < tetorisu_len; i++) {
     bgmTotalDuration += tetorisu[i].duration + len0;
@@ -547,10 +564,15 @@ void placeGarbage() {
 }
 
 void startGame() {
+  Serial.println("startGame ...");
   randomSeed(millis());
   memset(board, 0, sizeof(board));
   score = 0;
   level = 0;
+
+  // ミノカウントリセット
+  memset(pieceCount, 0, sizeof(pieceCount));
+  totalPieces = 0;
 
   modeB    = (gameMode == 1);
   slowMode = (gameMode == 2);
@@ -578,9 +600,17 @@ void spawnNewPiece() {
   rotation = 0;
   posX = BOARD_W / 2 - 2;
   posY = 0;
+
+  // 出現カウント
+  if (currentPiece >= 0 && currentPiece < 7) {
+    pieceCount[currentPiece]++;
+    totalPieces++;
+  }
+
   if (collision()) {
     gameOver = true;
     playSE(gameover_melody, gameover_melody_len);
+    printPieceStats();   // ゲームオーバー時に出力
   }
 }
 
@@ -814,4 +844,15 @@ void drawGameOver() {
     started = false;
     showLogo();
   }
+}
+
+// ミノ出現統計出力
+void printPieceStats() {
+  Serial.println("count");
+  for (int i = 0; i < 7; i++) {
+    float percent = (totalPieces > 0) ? (100.0f * pieceCount[i] / totalPieces) : 0.0f;
+    Serial.printf("%s : %d (%.2f%%)\n", pieceNames[i], pieceCount[i], percent);
+  }
+  Serial.printf("Total : %d\n", totalPieces);
+  Serial.println();
 }
